@@ -344,6 +344,39 @@ bad:
   return 0;
 }
 
+// Link a new page table to the pa of pgdir
+pde_t*
+linkuvm(pde_t *pgdir, uint sz, void* stack)
+{
+  pde_t *d;
+  pte_t *pte;
+  uint pa, i, j, flags;
+
+  if((d = setupkvm()) == 0)
+    return 0;
+  for(i = j = 0; i < sz; i += PGSIZE){
+    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+      panic("linkuvm: pte should exist");
+    if(!(*pte & PTE_P))
+      panic("linkuvm: page not present");
+    pa = PTE_ADDR(*pte);
+    flags = PTE_FLAGS(*pte);
+    if(i + 2*PGSIZE < sz)
+      if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
+        goto bad;
+    else {
+      if(mappages(d, (void*)i, PGSIZE, stack+j, flags) < 0)
+        goto bad;
+      j += PGSIZE;
+    }
+  }
+  return d;
+
+bad:
+  freevm(d);
+  return 0;
+}
+
 //PAGEBREAK!
 // Map user virtual address to kernel address.
 char*
@@ -391,4 +424,3 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 // Blank page.
 //PAGEBREAK!
 // Blank page.
-
