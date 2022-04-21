@@ -91,6 +91,12 @@ sys_uptime(void)
 }
 
 int
+sys_palloc(void)
+{
+  return palloc();
+}
+
+int
 sys_thread_create(void) // void* stack
 {
   int* stack;
@@ -102,7 +108,7 @@ sys_thread_create(void) // void* stack
 int
 sys_thread_id(void)
 {
-  return 37;
+  return myproc()->pid;
 }
 
 int

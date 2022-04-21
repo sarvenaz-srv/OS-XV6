@@ -248,6 +248,20 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   return newsz;
 }
 
+
+// Return pa of a complete page
+// Used for creating user stacks in thread_creator
+uint
+palloc(void)
+{
+  char *mem = kalloc();
+  if(mem == 0) {
+    cprintf("palloc out of memory\n");
+    return 0;
+  }
+  return V2P(mem);
+}
+
 // Deallocate user pages to bring the process size from oldsz to
 // newsz.  oldsz and newsz need not be page-aligned, nor does newsz
 // need to be less than oldsz.  oldsz can be larger than the actual
@@ -345,29 +359,29 @@ bad:
 }
 
 // Link a new page table to the pa of pgdir
+// except for the ustack. the inaccessible page is also brought from pgdir
 pde_t*
 linkuvm(pde_t *pgdir, uint sz, void* stack)
 {
   pde_t *d;
   pte_t *pte;
-  uint pa, i, j, flags;
+  uint pa, i, flags;
 
   if((d = setupkvm()) == 0)
     return 0;
-  for(i = j = 0; i < sz; i += PGSIZE){
+  for(i = 0; i < sz; i += PGSIZE){
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("linkuvm: pte should exist");
     if(!(*pte & PTE_P))
       panic("linkuvm: page not present");
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-    if(i + 2*PGSIZE < sz)
+    if(i + PGSIZE < sz) {
       if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
         goto bad;
-    else {
-      if(mappages(d, (void*)i, PGSIZE, stack+j, flags) < 0)
+    } else {
+      if(mappages(d, (void*)i, PGSIZE, *(uint*)stack, flags) < 0)
         goto bad;
-      j += PGSIZE;
     }
   }
   return d;

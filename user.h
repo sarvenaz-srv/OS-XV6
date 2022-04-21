@@ -23,6 +23,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+uint palloc(void);
 int thread_create(void*);
 int thread_id(void);
 int thread_join(int);

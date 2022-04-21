@@ -565,11 +565,14 @@ thread_create(void* stack)
   //np->parent = curproc;
 
   *np->tf = *curproc->tf;
+  // Clear %eax so that thread_create returns 0 in the new thread.
+  np->tf->eax = 0;
+
+  /* //transfer this section to thread_creator
   // Chage PC at this point
   np->tf->eip = elf.entry;  // main
   np->tf->esp = sp;
-  // Clear %eax so that fork returns 0 in the child.
-  np->tf->eax = 0;
+  */
 
   for(i = 0; i < NOFILE; i++)
     if(curproc->ofile[i])
@@ -579,7 +582,6 @@ thread_create(void* stack)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
-
 
   acquire(&ptable.lock);
 
