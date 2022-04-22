@@ -1,36 +1,35 @@
-#include "types.h"
-#include "stat.h"
-#include "user.h"
+#include "sthread.c"
 
 void testf(void* x)
 {
-  printf(1, "HI this is testf\n");
+  int i;
+  printf(1, "HI THIS IS TEST FUNC ID = %d\n", thread_id());
+  for(i = 0; i < 1000; i++) {
+    printf(1, ".");
+    //printf(1, "%s", (char*)x);
+  }
+  exit();
 }
 
 int main(void)
 {
-  int i, j;
+  int i, tid;
   uint stackadr;
-  for(i = 0; i < 1000; i++) {
-    printf(1, "thredtest %d:\n", i);
-
-    int stack = 23;
-    //thread_creator(testf, 0);
-    if (stack == 23)
-      printf(1, "thread_id successful\n");
-    else
-      printf(1, "thread_id failed\n");
-
-    int tid = thread_id();
-    if (tid)
-      printf(1, "thread_id successful, tid = %d\n", tid);
-    else
-      printf(1, "thread_id failed\n");
-
-    if(thread_join(56) == 56)
-      printf(1, "thread_join successful\n");
-    else
-      printf(1, "thread_join failed\n");
+  char* dot = ".";
+  tid = thread_creator(testf, dot);
+  if (tid > 0)
+    printf(1, "thread_create successful, tid = %d\n", tid);
+  else {
+    printf(1, "thread_create failed\n");
+    exit();
   }
+  //thread_join(tid);
+  if(thread_join(tid) == tid)
+    printf(1, "thread_join successful\n");
+  else
+    printf(1, "thread_join failed\n");
+  for(i = 0; i < 1000; i++)
+    printf(1, "!");
+
   exit();
 }

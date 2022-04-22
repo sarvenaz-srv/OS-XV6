@@ -230,7 +230,7 @@ exit(void)
 {
   struct proc *curproc = myproc();
   struct proc *p;
-  int fd;
+  int fd, lastthread;
 
   if(curproc == initproc)
     panic("init exiting");
@@ -248,22 +248,27 @@ exit(void)
   end_op();
   curproc->cwd = 0;
 
-
   acquire(&ptable.lock);
 
-  // Parent might be sleeping in wait().
-  wakeup1(curproc->parent);
-
-  //TODO: also check for first_pid
-
-  // Pass abandoned children to init.
+  // Pass abandoned children to init and check if last thread
+  lastthread = 1;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == 0 || p == curproc)
+      continue;
     if(p->parent == curproc){
       p->parent = initproc;
       if(p->state == ZOMBIE)
         wakeup1(initproc);
+    } else if(p->first_pid == curproc->first_pid) {
+      lastthread = 0;
+      // Other thread might also be joined to this process
+      wakeup1(p);
     }
   }
+
+  // Parent might be sleeping in wait(). wakeup parent if last thread
+  if(lastthread)
+    wakeup1(curproc->parent);
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
@@ -301,6 +306,51 @@ wait(void)
         p->state = UNUSED;
         release(&ptable.lock);
         return pid;
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || curproc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(curproc, &ptable.lock);  //DOC: wait-sleep
+  }
+}
+
+// Wait for thread with the same first_pid to exit and return its tid.
+// Return -1 if this process has no other threads.
+int
+thread_join(int target_tid)
+{
+  struct proc *p;
+  int havekids, tid;
+  struct proc *curproc = myproc();
+
+  acquire(&ptable.lock);
+  for(;;){
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->first_pid != curproc->first_pid)
+        continue;
+      havekids = 1;
+      if(p->state == ZOMBIE && p->pid == target_tid){
+        // Found one.
+        tid = p->pid;
+        kfree(p->kstack);
+        p->kstack = 0;
+        freethread(p->pgdir, PGROUNDDOWN(curproc->tf->esp)); //no need sice for sure there is another one but free stack
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        p->state = UNUSED;
+        p->first_pid = 0;
+        release(&ptable.lock);
+        return tid;
       }
     }
 
@@ -537,28 +587,61 @@ procdump(void)
   }
 }
 
+
+// Should only be used in combination with detachpage
+uint
+getpage(void)
+{
+  struct proc *curproc = myproc();
+  return palloc(curproc->pgdir, PGROUNDUP(curproc->sz));
+}
+
+uint
+detachpage(uint loc)
+{
+  return unmappages(myproc()->pgdir, (void*)loc, PGSIZE);
+}
+
 int
 thread_create(void* stack)
 {
+  cprintf("thread_create:\n");
   int i, pid;
-  uint sp;
   struct proc *np;
   struct proc *curproc = myproc();
+  uint sp = (uint)stack;
+
+  // Stack dump
+  cprintf("\n*\nvoid*\n*\n");
+  for(i = sp; i < PGROUNDUP(sp); i+=sizeof(void*))
+    cprintf("%p, ", ((void*)i));
+  cprintf("\n*\nuint\n*\n");
+  for(i = sp; i < PGROUNDUP(sp); i+=sizeof(uint))
+    cprintf("%p, ", ((uint)i));
+  cprintf("\n*\n*\n*\n");
+
+  char* arg;
+  uint spage = PGROUNDDOWN(sp);
+  cprintf("thread_create: sp = %p & spage = %p\n", sp, spage);
+  //cprintf("thread_create: strlen(arg) = %d & arg = %s\n", strlen(arg), arg);
+  uint orig_stack_beg = PGROUNDDOWN(curproc->tf->esp);
 
   // Allocate process.
   if((np = allocproc()) == 0){
+    cprintf("allocproc failed\n");
     return -1;
   }
 
   // Copy process state from proc.
-  if((np->pgdir = linkuvm(curproc->pgdir, curproc->sz, stack)) == 0){
+  if((np->pgdir = linkuvm(curproc->pgdir, curproc->sz, orig_stack_beg, spage)) == 0){
     kfree(np->kstack);
     np->kstack = 0;
     np->state = UNUSED;
+    cprintf("linkuvm failed\n");
     return -1;
   }
   np->first_pid = curproc->first_pid;
-  np->sz = curproc->sz;
+  np->sz = orig_stack_beg+PGSIZE;
 
   //TODO: choose one
   np->parent = curproc->parent;
@@ -568,11 +651,33 @@ thread_create(void* stack)
   // Clear %eax so that thread_create returns 0 in the new thread.
   np->tf->eax = 0;
 
-  /* //transfer this section to thread_creator
   // Chage PC at this point
-  np->tf->eip = elf.entry;  // main
-  np->tf->esp = sp;
-  */
+  np->tf->eip = *(uint*)stack;  // function to start executing
+  *(uint*)sp = (uint)exit;
+
+  np->tf->esp = orig_stack_beg + (sp - spage);
+  sp = np->tf->esp;
+
+  cprintf("stack is %p & esp is %p & *((uint*)esp) is %p\n", *(uint*)stack, sp, *((uint*)sp));
+  arg = (char*)(((uint*)stack)[3]);
+  cprintf("arg is %s\n", (arg-4096));
+
+  // Stack dump
+  cprintf("*\n*char*\n*\n");
+  for(i = stack; i < PGROUNDUP((uint)stack); i++)
+    cprintf("%c", *((char*)i));
+  cprintf("\n*\nvoid*\n*\n");
+  for(i = stack; i < PGROUNDUP((uint)stack); i+=sizeof(void*))
+    cprintf("%p, ", ((void*)i));
+  cprintf("\n*\nuint\n*\n");
+  for(i = stack; i < PGROUNDUP((uint)stack); i+=sizeof(uint))
+    cprintf("%p, ", ((uint)i));
+  cprintf("\n*\n*uint*\n*\n");
+  for(i = stack; i < PGROUNDUP((uint)stack); i+=sizeof(uint*))
+    cprintf("%p, ", (*(uint*)i));
+  cprintf("\n*\n*\n*\n");
+
+  //cprintf("thread_create: strlen(arg) = %d & arg = %s\n", strlen(arg), arg);
 
   for(i = 0; i < NOFILE; i++)
     if(curproc->ofile[i])
@@ -582,6 +687,8 @@ thread_create(void* stack)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
+
+  //cprintf("proc.c/thread_create: tid = %d\n", pid);
 
   acquire(&ptable.lock);
 

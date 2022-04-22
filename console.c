@@ -57,6 +57,7 @@ cprintf(char *fmt, ...)
   int i, c, locking;
   uint *argp;
   char *s;
+  char chr;
 
   locking = cons.locking;
   if(locking)
@@ -81,6 +82,11 @@ cprintf(char *fmt, ...)
     case 'x':
     case 'p':
       printint(*argp++, 16, 0);
+      break;
+    case 'c':
+      if((chr = (char)*argp++) == 0)
+        chr = "(null)";
+      consputc(chr);
       break;
     case 's':
       if((s = (char*)*argp++) == 0)
@@ -296,4 +302,3 @@ consoleinit(void)
 
   ioapicenable(IRQ_KBD, 0);
 }
-

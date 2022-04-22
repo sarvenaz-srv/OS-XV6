@@ -90,19 +90,32 @@ sys_uptime(void)
   return xticks;
 }
 
+
+// Should only be used in combination with sys_detachpage
 int
-sys_palloc(void)
+sys_getpage(void)
 {
-  return palloc();
+  return getpage();
+}
+
+int
+sys_detachpage(void)
+{
+  uint loc;
+  if(argint(0, (int*)&loc) < 0)
+    return -1;
+  cprintf("sys_detachpage loc = %p\n", loc);
+  return detachpage(loc);
 }
 
 int
 sys_thread_create(void) // void* stack
 {
-  int* stack;
-  if(argptr(0, (void*)&stack, sizeof(int)) < 0)
+  uint stack;
+  if(argint(0, (int*)&stack) < 0)
     return -1;
-  return *stack;
+  cprintf("sysproc sp is %p\n", (uint)stack);
+  return thread_create((void*)stack);
 }
 
 int
@@ -117,5 +130,5 @@ sys_thread_join(void) //int id
   int id;
   if(argint(0, &id) < 0)
     return -1;
-  return id;
+  return thread_join(id);
 }

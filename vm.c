@@ -79,6 +79,33 @@ mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
   return 0;
 }
 
+// Zero out PTEs for virtual addresses starting at va that refer to
+// physical addresses. va and size might not be page-aligned.
+uint
+unmappages(pde_t *pgdir, void *va, uint size)
+{
+  char *a, *last;
+  pte_t *pte;
+  uint pa, mem = 0;
+
+  a = (char*)PGROUNDDOWN((uint)va);
+  last = (char*)PGROUNDDOWN(((uint)va) + size - 1);
+  for(;;){
+    if((pte = walkpgdir(pgdir, a, 1)) == 0)
+      return -1;
+    pa = PTE_ADDR(*pte);
+    if(pa == 0)
+      panic("unmappage/zero_address");
+    mem = P2V(pa);
+    *pte = 0;
+    if(a == last)
+      break;
+    a += PGSIZE;
+    pa += PGSIZE;
+  }
+  return mem;
+}
+
 // There is one page table per process, plus one that's used when
 // a CPU is not running any process (kpgdir). The kernel uses the
 // current process's page table during system calls and interrupts;
@@ -252,14 +279,17 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 // Return pa of a complete page
 // Used for creating user stacks in thread_creator
 uint
-palloc(void)
+palloc(pde_t *pgdir, uint loc)
 {
   char *mem = kalloc();
+  loc = PGROUNDDOWN(loc);
   if(mem == 0) {
     cprintf("palloc out of memory\n");
     return 0;
   }
-  return V2P(mem);
+  cprintf("palloc: mem = %p & V2P(mem) = %p\n", mem, V2P(mem));
+  mappages(pgdir, (void*)loc, PGSIZE, V2P(mem), PTE_W|PTE_U);
+  return loc;
 }
 
 // Deallocate user pages to bring the process size from oldsz to
@@ -277,13 +307,14 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
   a = PGROUNDUP(newsz);
   for(; a  < oldsz; a += PGSIZE){
+    //cprintf("deallocuvm: a = %p\n", a);
     pte = walkpgdir(pgdir, (char*)a, 0);
     if(!pte)
       a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
     else if((*pte & PTE_P) != 0){
       pa = PTE_ADDR(*pte);
       if(pa == 0)
-        panic("kfree");
+        panic("deallocuvm/kfree");
       char *v = P2V(pa);
       kfree(v);
       *pte = 0;
@@ -303,6 +334,27 @@ freevm(pde_t *pgdir)
     panic("freevm: no pgdir");
   deallocuvm(pgdir, KERNBASE, 0);
   for(i = 0; i < NPDENTRIES; i++){
+    if(pgdir[i] & PTE_P){
+      char * v = P2V(PTE_ADDR(pgdir[i]));
+      kfree(v);
+    }
+  }
+  kfree((char*)pgdir);
+}
+
+// Free a stack and heap for a certain thread/process
+// in the user part.
+void
+freethread(pde_t *pgdir, uint stack_beg)
+{
+  uint i;
+  int newsz = 0;
+  if(pgdir == 0)
+    panic("freevm: no pgdir");
+  cprintf("stack_beg is %p & newsz is %p\n", stack_beg, newsz);
+  newsz = deallocuvm(pgdir, KERNBASE, stack_beg);
+  cprintf("stack_beg is %p & newsz is %p\n", stack_beg, newsz);
+  for(i = newsz; i < NPDENTRIES; i++){
     if(pgdir[i] & PTE_P){
       char * v = P2V(PTE_ADDR(pgdir[i]));
       kfree(v);
@@ -361,11 +413,12 @@ bad:
 // Link a new page table to the pa of pgdir
 // except for the ustack. the inaccessible page is also brought from pgdir
 pde_t*
-linkuvm(pde_t *pgdir, uint sz, void* stack)
+linkuvm(pde_t *pgdir, uint sz, uint orig_stack_beg, uint stack)
 {
   pde_t *d;
   pte_t *pte;
   uint pa, i, flags;
+  cprintf("WE ARE IN LINKUVM sz = %p, stackend = %p\n", sz, orig_stack_beg+PGSIZE);
 
   if((d = setupkvm()) == 0)
     return 0;
@@ -376,12 +429,14 @@ linkuvm(pde_t *pgdir, uint sz, void* stack)
       panic("linkuvm: page not present");
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-    if(i + PGSIZE < sz) {
+    if(i < orig_stack_beg) {
       if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
         goto bad;
     } else {
-      if(mappages(d, (void*)i, PGSIZE, *(uint*)stack, flags) < 0)
+      cprintf("linkuvm: mapping stack @%p to %p\n", stack, i);
+      if(mappages(d, (void*)i, PGSIZE, V2P(stack), flags) < 0)
         goto bad;
+      break;
     }
   }
   return d;
