@@ -605,25 +605,11 @@ detachpage(uint loc)
 int
 thread_create(void* stack)
 {
-  cprintf("thread_create:\n");
   int i, pid;
   struct proc *np;
   struct proc *curproc = myproc();
   uint sp = (uint)stack;
-
-  // Stack dump
-  cprintf("\n*\nvoid*\n*\n");
-  for(i = sp; i < PGROUNDUP(sp); i+=sizeof(void*))
-    cprintf("%p, ", ((void*)i));
-  cprintf("\n*\nuint\n*\n");
-  for(i = sp; i < PGROUNDUP(sp); i+=sizeof(uint))
-    cprintf("%p, ", ((uint)i));
-  cprintf("\n*\n*\n*\n");
-
-  char* arg;
   uint spage = PGROUNDDOWN(sp);
-  cprintf("thread_create: sp = %p & spage = %p\n", sp, spage);
-  //cprintf("thread_create: strlen(arg) = %d & arg = %s\n", strlen(arg), arg);
   uint orig_stack_beg = PGROUNDDOWN(curproc->tf->esp);
 
   // Allocate process.
@@ -633,7 +619,7 @@ thread_create(void* stack)
   }
 
   // Copy process state from proc.
-  if((np->pgdir = linkuvm(curproc->pgdir, curproc->sz, orig_stack_beg, spage)) == 0){
+  if((np->pgdir = linkuvm(curproc->pgdir, curproc->sz, orig_stack_beg, sp)) == 0){
     kfree(np->kstack);
     np->kstack = 0;
     np->state = UNUSED;
@@ -653,31 +639,11 @@ thread_create(void* stack)
 
   // Chage PC at this point
   np->tf->eip = *(uint*)stack;  // function to start executing
-  *(uint*)sp = (uint)exit;
-
   np->tf->esp = orig_stack_beg + (sp - spage);
   sp = np->tf->esp;
-
-  cprintf("stack is %p & esp is %p & *((uint*)esp) is %p\n", *(uint*)stack, sp, *((uint*)sp));
-  arg = (char*)(((uint*)stack)[3]);
-  cprintf("arg is %s\n", (arg-4096));
-
-  // Stack dump
-  cprintf("*\n*char*\n*\n");
-  for(i = stack; i < PGROUNDUP((uint)stack); i++)
-    cprintf("%c", *((char*)i));
-  cprintf("\n*\nvoid*\n*\n");
-  for(i = stack; i < PGROUNDUP((uint)stack); i+=sizeof(void*))
-    cprintf("%p, ", ((void*)i));
-  cprintf("\n*\nuint\n*\n");
-  for(i = stack; i < PGROUNDUP((uint)stack); i+=sizeof(uint))
-    cprintf("%p, ", ((uint)i));
-  cprintf("\n*\n*uint*\n*\n");
-  for(i = stack; i < PGROUNDUP((uint)stack); i+=sizeof(uint*))
-    cprintf("%p, ", (*(uint*)i));
-  cprintf("\n*\n*\n*\n");
-
-  //cprintf("thread_create: strlen(arg) = %d & arg = %s\n", strlen(arg), arg);
+  *(uint*)sp = 0xffffffff;
+  uint* retloc = (uint*)(np->tf) - 4;
+  *retloc = (uint)0xffffffff;
 
   for(i = 0; i < NOFILE; i++)
     if(curproc->ofile[i])
@@ -687,8 +653,6 @@ thread_create(void* stack)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
-
-  //cprintf("proc.c/thread_create: tid = %d\n", pid);
 
   acquire(&ptable.lock);
 

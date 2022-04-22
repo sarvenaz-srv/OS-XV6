@@ -85,7 +85,7 @@ cprintf(char *fmt, ...)
       break;
     case 'c':
       if((chr = (char)*argp++) == 0)
-        chr = "(null)";
+        chr = '0';
       consputc(chr);
       break;
     case 's':

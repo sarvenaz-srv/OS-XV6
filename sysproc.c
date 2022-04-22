@@ -104,7 +104,6 @@ sys_detachpage(void)
   uint loc;
   if(argint(0, (int*)&loc) < 0)
     return -1;
-  cprintf("sys_detachpage loc = %p\n", loc);
   return detachpage(loc);
 }
 
@@ -114,7 +113,6 @@ sys_thread_create(void) // void* stack
   uint stack;
   if(argint(0, (int*)&stack) < 0)
     return -1;
-  cprintf("sysproc sp is %p\n", (uint)stack);
   return thread_create((void*)stack);
 }
 

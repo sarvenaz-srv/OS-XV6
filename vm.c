@@ -96,12 +96,11 @@ unmappages(pde_t *pgdir, void *va, uint size)
     pa = PTE_ADDR(*pte);
     if(pa == 0)
       panic("unmappage/zero_address");
-    mem = P2V(pa);
+    mem = P2V_WO(pa);
     *pte = 0;
     if(a == last)
       break;
     a += PGSIZE;
-    pa += PGSIZE;
   }
   return mem;
 }
@@ -287,7 +286,6 @@ palloc(pde_t *pgdir, uint loc)
     cprintf("palloc out of memory\n");
     return 0;
   }
-  cprintf("palloc: mem = %p & V2P(mem) = %p\n", mem, V2P(mem));
   mappages(pgdir, (void*)loc, PGSIZE, V2P(mem), PTE_W|PTE_U);
   return loc;
 }
@@ -351,9 +349,7 @@ freethread(pde_t *pgdir, uint stack_beg)
   int newsz = 0;
   if(pgdir == 0)
     panic("freevm: no pgdir");
-  cprintf("stack_beg is %p & newsz is %p\n", stack_beg, newsz);
   newsz = deallocuvm(pgdir, KERNBASE, stack_beg);
-  cprintf("stack_beg is %p & newsz is %p\n", stack_beg, newsz);
   for(i = newsz; i < NPDENTRIES; i++){
     if(pgdir[i] & PTE_P){
       char * v = P2V(PTE_ADDR(pgdir[i]));
@@ -417,8 +413,8 @@ linkuvm(pde_t *pgdir, uint sz, uint orig_stack_beg, uint stack)
 {
   pde_t *d;
   pte_t *pte;
-  uint pa, i, flags;
-  cprintf("WE ARE IN LINKUVM sz = %p, stackend = %p\n", sz, orig_stack_beg+PGSIZE);
+  uint pa, i, j, flags;
+  uint spage = PGROUNDDOWN(stack);
 
   if((d = setupkvm()) == 0)
     return 0;
@@ -433,9 +429,17 @@ linkuvm(pde_t *pgdir, uint sz, uint orig_stack_beg, uint stack)
       if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
         goto bad;
     } else {
-      cprintf("linkuvm: mapping stack @%p to %p\n", stack, i);
-      if(mappages(d, (void*)i, PGSIZE, V2P(stack), flags) < 0)
+      if(mappages(d, (void*)i, PGSIZE, V2P(spage), flags) < 0)
         goto bad;
+
+      for(j = stack-spage; j < PGSIZE; j+=sizeof(uint*)) {
+        uint tmp = *(uint*)(spage+j);
+        if(tmp > sz && tmp < sz+PGSIZE) {
+          tmp += i - sz;
+          *(uint*)(spage+j) = tmp;
+        }
+        *(uint*)(i+j) = tmp;
+      }
       break;
     }
   }
