@@ -2,43 +2,42 @@
 #include "stat.h"
 #include "user.h"
 
-void testf2(char x) {
-  int i;
-  for(i = 0; i < 100; i++) {
-    printf(1, "%c", x);
-  }
-  printf(1, "\n");
-}
+int Base, Limit;
 
-void testf(void* x)
-{
-  int i;
-  printf(1, "testf, testing thread_id: tid = %d\n", thread_id());
-  for(i = 0; i < 100; i++) {
-    printf(1, "%s", (char*)x);
+void increase(void*) {
+  int res, tid, ntid;
+  Base++;
+  if(Base < Limit) {
+    tid = thread_id();
+    ntid = thread_creator(increase, 0);
+    res = thread_join(ntid);
+    if(res == 0) {
+      printf(1, "[ID] %d => [Success] 0\n", tid);
+    } else if(res == -1) {
+      printf(1, "[ID] %d => [Failed] -1\n", tid);
+    } else {
+      printf(1, "increase, thread not found");
+    }
+    kill(tid);
+  } else {
+    exit();
   }
-  printf(1, "\n");
-  testf2('2');
-  printf(1, "system uptime is %d\n", uptime());
-  exit();
 }
 
 int main(void)
 {
-  int i, tid;
-  char* dot = "1";
-  tid = thread_creator(testf, dot);
-  if (tid > 0) {
-    printf(1, "THREAD CREATED\n");
-    if(thread_join(tid) == tid)
-      printf(1, "thread_join successful\n");
-    else
-      printf(1, "thread_join failed\n");
-    for(i = 0; i < 100; i++)
-      printf(1, "3");
-    printf(1, "\nthread_create successful, tid = %d\n", tid);
-  } else
-    printf(1, "thread_create failed\n");
-
+  int res, ntid;
+  Base = 0;
+  Limit = 3;
+  printf(1, "Base = %d, Limit = %d\n", Base, Limit);
+  ntid = thread_creator(increase, 0);
+  res = thread_join(ntid);
+  if(res == 0) {
+    printf(1, "[ID] %d => [Success] 0\n", getpid());
+  } else if(res == -1) {
+    printf(1, "[ID] %d => [Failed] -1\n", getpid());
+  } else {
+    printf(1, "main, thread not found");
+  }
   exit();
 }

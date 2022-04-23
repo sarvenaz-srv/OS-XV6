@@ -293,7 +293,8 @@ wait(void)
       if(p->parent != curproc)
         continue;
       havekids = 1;
-      if(p->state == ZOMBIE){
+      //TODO: remove the fist condition if you want the parent process to be able to wait on othear threads
+      if(p->pid == p->first_pid && p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
         kfree(p->kstack);
@@ -326,20 +327,28 @@ int
 thread_join(int target_tid)
 {
   struct proc *p;
-  int havekids, tid;
+  int targetexists, res;
   struct proc *curproc = myproc();
 
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for exited children.
-    havekids = 0;
+    targetexists = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->first_pid != curproc->first_pid)
+      if(p->pid == curproc->pid || p->first_pid != curproc->first_pid || p->pid != target_tid)
         continue;
-      havekids = 1;
-      if(p->state == ZOMBIE && p->pid == target_tid){
+      targetexists = 1;
+      //TODO: remove this condition if you want other threatds to be able to wait on the first thread
+      if(p->pid == p->first_pid) {
+        return -2; // you cant join a process that was creasted with fork
+      }
+
+      if(p->state == ZOMBIE){
         // Found one.
-        tid = p->pid;
+        if(p->killed) {
+          res = -1;
+        } else
+          res = 0;
         kfree(p->kstack);
         p->kstack = 0;
         freethread(p->pgdir, PGROUNDDOWN(curproc->tf->esp)); //no need sice for sure there is another one but free stack
@@ -350,14 +359,14 @@ thread_join(int target_tid)
         p->state = UNUSED;
         p->first_pid = 0;
         release(&ptable.lock);
-        return tid;
+        return res;
       }
     }
 
     // No point waiting if we don't have any children.
-    if(!havekids || curproc->killed){
+    if(!targetexists || curproc->killed){
       release(&ptable.lock);
-      return -1;
+      return -2; // you cant wait on a target that doesn't exist or if your'e dead
     }
 
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
