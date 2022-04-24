@@ -230,7 +230,7 @@ exit(void)
 {
   struct proc *curproc = myproc();
   struct proc *p;
-  int fd, lastthread;
+  int fd;
 
   if(curproc == initproc)
     panic("init exiting");
@@ -251,7 +251,6 @@ exit(void)
   acquire(&ptable.lock);
 
   // Pass abandoned children to init and check if last thread
-  lastthread = 1;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == 0 || p == curproc)
       continue;
@@ -259,16 +258,11 @@ exit(void)
       p->parent = initproc;
       if(p->state == ZOMBIE)
         wakeup1(initproc);
-    } else if(p->first_pid == curproc->first_pid) {
-      lastthread = 0;
-      // Other thread might also be joined to this process
+    } else if(p->first_pid == curproc->first_pid || p == curproc->parent) {
+      // Other threads or parent might be joined-to/waiting-for this process
       wakeup1(p);
     }
   }
-
-  // Parent might be sleeping in wait(). wakeup parent if last thread
-  if(lastthread)
-    wakeup1(curproc->parent);
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
@@ -290,11 +284,11 @@ wait(void)
     // Scan through table looking for exited children.
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != curproc)
+      if(p->pid != p->first_pid || p->parent != curproc)
         continue;
       havekids = 1;
       //TODO: remove the fist condition if you want the parent process to be able to wait on othear threads
-      if(p->pid == p->first_pid && p->state == ZOMBIE){
+      if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
         kfree(p->kstack);
@@ -335,7 +329,7 @@ thread_join(int target_tid)
     // Scan through table looking for exited children.
     targetexists = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->pid == curproc->pid || p->first_pid != curproc->first_pid || p->pid != target_tid)
+      if(p == curproc || p->first_pid != curproc->first_pid || p->pid != target_tid)
         continue;
       targetexists = 1;
       //TODO: remove this condition if you want other threatds to be able to wait on the first thread
@@ -351,7 +345,7 @@ thread_join(int target_tid)
           res = 0;
         kfree(p->kstack);
         p->kstack = 0;
-        freethread(p->pgdir, PGROUNDDOWN(curproc->tf->esp)); //no need sice for sure there is another one but free stack
+        freethread(p->pgdir, PGROUNDDOWN(curproc->tf->esp));
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
@@ -363,13 +357,13 @@ thread_join(int target_tid)
       }
     }
 
-    // No point waiting if we don't have any children.
+    // No point waiting if the target doesn't exist.
     if(!targetexists || curproc->killed){
       release(&ptable.lock);
       return -2; // you cant wait on a target that doesn't exist or if your'e dead
     }
 
-    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    // Wait for target to exit.  (See wakeup1 call in proc_exit.)
     sleep(curproc, &ptable.lock);  //DOC: wait-sleep
   }
 }
@@ -637,22 +631,13 @@ thread_create(void* stack)
   }
   np->first_pid = curproc->first_pid;
   np->sz = orig_stack_beg+PGSIZE;
-
-  //TODO: choose one
-  np->parent = curproc->parent;
-  //np->parent = curproc;
-
+  np->parent = curproc;
   *np->tf = *curproc->tf;
   // Clear %eax so that thread_create returns 0 in the new thread.
   np->tf->eax = 0;
-
-  // Chage PC at this point
-  np->tf->eip = *(uint*)stack;  // function to start executing
   np->tf->esp = orig_stack_beg + (sp - spage);
-  sp = np->tf->esp;
-  *(uint*)sp = 0xffffffff;
-  uint* retloc = (uint*)(np->tf) - 4;
-  *retloc = (uint)0xffffffff;
+  np->tf->eip = *((uint*)(np->tf->esp));  // function to start executing
+  np->tf->esp += sizeof(uint*); // set esp to return location (ttrap)
 
   for(i = 0; i < NOFILE; i++)
     if(curproc->ofile[i])

@@ -4,25 +4,7 @@
 
 int Base, Limit;
 
-void increase(void*) {
-  int res, tid, ntid;
-  Base++;
-  if(Base < Limit) {
-    tid = thread_id();
-    ntid = thread_creator(increase, 0);
-    res = thread_join(ntid);
-    if(res == 0) {
-      printf(1, "[ID] %d => [Success] 0\n", tid);
-    } else if(res == -1) {
-      printf(1, "[ID] %d => [Failed] -1\n", tid);
-    } else {
-      printf(1, "increase, thread not found");
-    }
-    kill(tid);
-  } else {
-    exit();
-  }
-}
+void increase(void* arg);
 
 int main(void)
 {
@@ -40,4 +22,23 @@ int main(void)
     printf(1, "main, thread not found");
   }
   exit();
+}
+
+void increase(void* arg) {
+  int res, tid, ntid;
+  Base++;
+  if(Base < Limit) {
+    tid = thread_id();
+    ntid = thread_creator(increase, 0);
+    res = thread_join(ntid);
+    if(res == 0) {
+      printf(1, "[ID] %d => [Success] 0\n", tid);
+    } else if(res == -1) {
+      printf(1, "[ID] %d => [Failed] -1\n", tid);
+    } else {
+      printf(1, "increase, thread not found");
+    }
+  } else {
+    exit();
+  }
 }
