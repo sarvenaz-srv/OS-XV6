@@ -5,6 +5,7 @@
 int Base, Limit;
 
 void increase(void* arg);
+void test(void* arg);
 
 int main(void)
 {
@@ -13,32 +14,34 @@ int main(void)
   Limit = 3;
   printf(1, "Base = %d, Limit = %d\n", Base, Limit);
   ntid = thread_creator(increase, 0);
-  res = thread_join(ntid);
-  if(res == 0) {
-    printf(1, "[ID] %d => [Success] 0\n", getpid());
-  } else if(res == -1) {
-    printf(1, "[ID] %d => [Failed] -1\n", getpid());
-  } else {
-    printf(1, "main, thread not found");
+  if(ntid <= 0)
+    printf(1, "threadtest failed\n");
+  else {
+    res = thread_join(ntid);
+    if(res)
+      printf(1, "threadtest failed\n");
+    else
+      printf(1, "threadtest successful\n");
   }
   exit();
 }
 
 void increase(void* arg) {
-  int res, tid, ntid;
-  Base++;
+  int res, tid = thread_id(), ntid;
+  int preVal = ++Base;
   if(Base < Limit) {
-    tid = thread_id();
     ntid = thread_creator(increase, 0);
-    res = thread_join(ntid);
+    if(ntid <= 0)
+      res = -1;
+    else
+      res = thread_join(ntid);
     if(res == 0) {
-      printf(1, "[ID] %d => [Success] 0\n", tid);
+      printf(1, "[%d] %d => [Success]\n", tid, preVal);
     } else if(res == -1) {
-      printf(1, "[ID] %d => [Failed] -1\n", tid);
+      printf(1, "[%d] %d => [Failed]\n", tid, preVal);
     } else {
-      printf(1, "increase, thread not found");
+      printf(1, "[%d] %d => [Join not valid]\n", tid, preVal);
     }
-  } else {
-    exit();
-  }
+  } else
+    printf(1, "[%d] %d => [New thread not needed]\n", tid, preVal);
 }

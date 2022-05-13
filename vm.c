@@ -348,7 +348,7 @@ freethread(pde_t *pgdir, uint stack_beg)
   uint i;
   int newsz = 0;
   if(pgdir == 0)
-    panic("freevm: no pgdir");
+    panic("freethread: no pgdir");
   newsz = deallocuvm(pgdir, KERNBASE, stack_beg);
   for(i = newsz; i < NPDENTRIES; i++){
     if(pgdir[i] & PTE_P){
@@ -415,6 +415,7 @@ linkuvm(pde_t *pgdir, uint sz, uint orig_stack_beg, uint stack)
   pte_t *pte;
   uint pa, i, j, flags;
   uint spage = PGROUNDDOWN(stack);
+  char* mem;
 
   if((d = setupkvm()) == 0)
     return 0;
@@ -425,13 +426,19 @@ linkuvm(pde_t *pgdir, uint sz, uint orig_stack_beg, uint stack)
       panic("linkuvm: page not present");
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-    if(i < orig_stack_beg) {
+    if(i < orig_stack_beg - PGSIZE) { // link everything before stack
       if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
         goto bad;
-    } else {
-      if(mappages(d, (void*)i, PGSIZE, V2P(spage), flags) < 0)
+    } else if(i < orig_stack_beg) { // create inaccessible page before stack
+      if((mem = kalloc()) == 0)
         goto bad;
-
+      if(mappages(d, (void*)i, PGSIZE, V2P(mem), PTE_W) < 0) {
+        kfree(mem);
+        goto bad;
+      }
+    } else { // place the given stack page in the pagedir
+      if(mappages(d, (void*)i, PGSIZE, V2P(spage), PTE_W|PTE_U) < 0)
+        goto bad;
       for(j = stack-spage; j < PGSIZE; j+=sizeof(uint*)) {
         uint tmp = *(uint*)(spage+j);
         if(tmp > sz && tmp < sz+PGSIZE) {

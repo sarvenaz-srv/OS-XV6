@@ -8,7 +8,7 @@ ttrap(void)
 {
   int tid = thread_id();
   if(tid)
-    kill(tid);
+    exit();
   else
     printf(1, "Calling ttrap on a non-successful thread\n");
 }

@@ -284,10 +284,9 @@ wait(void)
     // Scan through table looking for exited children.
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->pid != p->first_pid || p->parent != curproc)
+      if(p->pid != p->first_pid || p->parent != curproc) // if p isn't a thread or the caller process
         continue;
       havekids = 1;
-      //TODO: remove the fist condition if you want the parent process to be able to wait on othear threads
       if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
@@ -332,7 +331,6 @@ thread_join(int target_tid)
       if(p == curproc || p->first_pid != curproc->first_pid || p->pid != target_tid)
         continue;
       targetexists = 1;
-      //TODO: remove this condition if you want other threatds to be able to wait on the first thread
       if(p->pid == p->first_pid) {
         return -2; // you cant join a process that was creasted with fork
       }
