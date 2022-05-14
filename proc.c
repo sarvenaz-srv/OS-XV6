@@ -322,6 +322,9 @@ thread_join(int target_tid)
   struct proc *p;
   int targetexists, res;
   struct proc *curproc = myproc();
+  if(target_tid == curproc->pid){
+    return -2;
+  }
 
   acquire(&ptable.lock);
   for(;;){
