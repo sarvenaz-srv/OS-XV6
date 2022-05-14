@@ -349,7 +349,7 @@ freethread(pde_t *pgdir, uint stack_beg)
   int newsz = 0;
   if(pgdir == 0)
     panic("freethread: no pgdir");
-  newsz = deallocuvm(pgdir, KERNBASE, stack_beg);
+  newsz = deallocuvm(pgdir, KERNBASE, stack_beg - PGSIZE);
   for(i = newsz; i < NPDENTRIES; i++){
     if(pgdir[i] & PTE_P){
       char * v = P2V(PTE_ADDR(pgdir[i]));
