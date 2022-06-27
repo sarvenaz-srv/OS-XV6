@@ -54,7 +54,10 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   int first_pid;               // Number of threads that share the pm
-  uint priority;               // Proccess priority
+  uint priority;               // Process priority
+  uint creationTime;           // Process creation time
+  uint lastLeaveTime;          // Last time process left the cpu
+  uint totalWaitTime;          // Total process wait time
 };
 
 // Process memory is laid out contiguously, low addresses first:

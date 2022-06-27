@@ -94,7 +94,10 @@ found:
   //TODO: Check later
   if(p->pid == 1)
     p->priority = 1;
-  //cprintf("[new pid = %d]", p->pid);
+
+  uint curTime = ticks;
+  p->lastLeaveTime = p->creationTime = curTime;
+  p->totalWaitTime = 0;
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -155,14 +158,16 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
-
   release(&ptable.lock);
 
+  int shouldYield;
   pushcli();
-  if(mycpu()->schedAlg == 2) {
+  shouldYield = mycpu()->schedAlg == 2;
+  popcli();
+  if(shouldYield) {
     yield();
   }
-  popcli();
+
 }
 
 // Grow current process's memory by n bytes.
@@ -228,14 +233,15 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
-
   release(&ptable.lock);
 
+  int shouldYield;
   pushcli();
-  if(mycpu()->schedAlg == 2) {
+  shouldYield = mycpu()->schedAlg == 2;
+  popcli();
+  if(shouldYield) {
     yield();
   }
-  popcli();
 
   return pid;
 }
@@ -438,8 +444,8 @@ scheduler(void)
       }
       break;
     case 2:
-    // cprintf("~2~");
-      timeQ = QUANTUM;
+     //cprintf("~2~");
+      //timeQ = QUANTUM;
     case 3:
     // cprintf("~3~");
       //TODO: Check for loop this should be no problem but just in case
@@ -462,9 +468,9 @@ scheduler(void)
       if(found) {
         p = minP;
         c->RRLastProc = minP;
-        if(c->schedAlg == 3) {
-          timeQ = PRIORITY_Q[p->priority-1];
-        }
+        //if(c->schedAlg == 3) {
+        timeQ = PRIORITY_Q[p->priority-1];
+        //}
       } else {
         c->RRLastProc = ptable.proc; // No proc found. Search from the beginning
       }
@@ -621,18 +627,9 @@ static void
 wakeup1(void *chan)
 {
   struct proc *p;
-  uint newRunnable = 0;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan) {
+    if(p->state == SLEEPING && p->chan == chan)
       p->state = RUNNABLE;
-      newRunnable = 1;
-    }
-
-  pushcli();
-  if(newRunnable && mycpu()->schedAlg == 2) {
-    yield();
-  }
-  popcli();
 }
 
 // Wake up all processes sleeping on chan.
@@ -660,14 +657,17 @@ kill(int pid)
       if(p->state == SLEEPING) {
         p->state = RUNNABLE;
         changedToRunnable = 1;
-
       }
       release(&ptable.lock);
+
+      int shouldYield;
       pushcli();
-      if(changedToRunnable && mycpu()->schedAlg == 2) {
+      shouldYield = mycpu()->schedAlg == 2;
+      popcli();
+      if(changedToRunnable && shouldYield) {
         yield();
       }
-      popcli();
+
       return 0;
     }
   }
@@ -773,13 +773,15 @@ thread_create(void* stack)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
-
   release(&ptable.lock);
 
+  int shouldYield;
   pushcli();
-  if(mycpu()->schedAlg == 2) {
+  shouldYield = mycpu()->schedAlg == 2;
+  popcli();
+  if(shouldYield) {
     yield();
   }
-  popcli();
+
   return pid;
 }
