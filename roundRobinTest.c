@@ -4,20 +4,23 @@
 
 
 int main(void) {
+  change_policy(1);
   for(int i = 0; i < 10; i++) {
     printf(1, "i = %d\n", i);
     if(!fork()) {
       int pid = getpid();
-      for(int j = 0; j < 100; j++)
+      for(int j = 0; j < 1000; j++)
         printf(1, "/%d/ : /%d/\n", pid, j);
-      struct procTimes procTimes = get_proc_times();
-      printf(1, "CPU Burst Time: %d\nTurnaround Time: %d\nWait Time: %d", procTimes.CBT, procTimes.TT, procTimes.WT);
+      struct procTimes procTimes;
+      get_proc_times(&procTimes);
+      printf(1, "CPU Burst Time: %d\nTurnaround Time: %d\nWait Time: %d\n", procTimes.CBT, procTimes.TT, procTimes.WT);
       exit();
     }
   }
 
   for(int i = 0; i < 10; i++) {
-    printf(1, "waited: %d\n", wait());
+    if(wait() < 0)
+      printf(1, "No Children Left!!!\n");
   }
   exit();
 }

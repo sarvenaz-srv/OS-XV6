@@ -140,7 +140,7 @@ sys_change_policy(void)
   return change_policy(pol);
 }
 
-int 
+int
 sys_set_priority(void)
 {
   int prio;
@@ -151,8 +151,10 @@ sys_set_priority(void)
   return 1;
 }
 
-struct procTimes
+void
 sys_get_proc_times(void)
 {
-  return get_proc_times();
+  char* arg;
+  argptr(0, &arg, sizeof(struct procTimes));
+  get_proc_times(arg);
 }

@@ -29,7 +29,7 @@ int thread_create(void*);
 int thread_id(void);
 int thread_join(int);
 int change_policy(int);
-struct procTImes get_proc_times(void);
+void get_proc_times(struct procTimes *);
 
 
 // ulib.c
@@ -48,4 +48,3 @@ int atoi(const char*);
 
 //sthread.c
 int thread_creator(void (*fn) (void*), void *arg);
-

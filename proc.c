@@ -560,15 +560,14 @@ set_priority(int prio)
   myproc()->priority = prio;
 }
 
-struct procTimes
-get_proc_times(void)
+void
+get_proc_times(void* arg)
 {
-  struct procTimes procTimes;
   struct proc *p = myproc();
-  procTimes.TT = ticks - p->creationTime;
-  procTimes.WT = p->totalWaitTime;
-  procTimes.CBT = procTimes.TT - procTimes.WT;
-  return procTimes;
+  struct procTimes* procTimes = (struct procTimes*)arg;
+  procTimes->TT = ticks - p->creationTime;
+  procTimes->WT = p->totalWaitTime;
+  procTimes->CBT = procTimes->TT - procTimes->WT;
 }
 
 // A fork child's very first scheduling by scheduler()
