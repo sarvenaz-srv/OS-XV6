@@ -8,6 +8,9 @@ struct cpu {
   int ncli;                    // Depth of pushcli nesting.
   int intena;                  // Were interrupts enabled before pushcli?
   struct proc *proc;           // The process running on this cpu or null
+  uint schedAlg;               // Scheduling Algorithem Number
+  struct proc* RRLastProc;     // Last Process switched in RR algorithem
+  uint ctr;                    // Clock Ticks remaining before current proc yeilds
 };
 
 extern struct cpu cpus[NCPU];
@@ -49,7 +52,8 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  int first_pid;            // Number of threads that share the pm
+  int first_pid;               // Number of threads that share the pm
+  uint priority;               // Proccess priority
 };
 
 // Process memory is laid out contiguously, low addresses first:

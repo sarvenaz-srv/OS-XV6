@@ -87,8 +87,12 @@ allocproc(void)
 
 found:
   p->state = EMBRYO;
+  p->priority = 3;
   p->pid = nextpid++;
-
+  //TODO: Check later
+  if(p->pid == 1)
+    p->priority = 1;
+  //cprintf("[new pid = %d]", p->pid);
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -212,7 +216,7 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
-
+  //cprintf("[pid = %d]", pid);
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
@@ -382,22 +386,56 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  uint timeQ;
+  uint found;
   c->proc = 0;
 
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
+    timeQ = 1;
+    found = 0;
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
-
+    switch (c->schedAlg) {
+    default:
+      c->schedAlg = 0;
+      //cprintf("~default~");
+    case 1:
+    //cprintf("~1~");
+      timeQ = QUANTUM;
+    case 0:
+    //cprintf("~0~");
+      if(c->RRLastProc < ptable.proc || c->RRLastProc >= ptable.proc)
+        c->RRLastProc = ptable.proc;
+      for(p = c->RRLastProc; p < &ptable.proc[NPROC]; p++){
+        if(p->state != RUNNABLE)
+          continue;
+        c->RRLastProc = p;
+        c->ctr = timeQ;
+        found = 1;
+        break;
+      }
+      break;
+    // case 2:
+    // cprintf("~2~");
+    //   break;
+    // case 3:
+    // cprintf("~3~");
+    //   break;
+    // case 4:
+    // cprintf("~4~");
+    //   break;
+    }
+    if(found) {
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
+
+      //cprintf("[pid = %d]", p->pid);
+
       c->proc = p;
+
       switchuvm(p);
       p->state = RUNNING;
 
