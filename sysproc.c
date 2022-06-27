@@ -141,9 +141,9 @@ sys_change_policy(void)
 }
 
 int
-sys_get_priority(void)
+sys_get_policy(void)
 {
-  return get_priority();
+  return get_policy();
 }
 
 int

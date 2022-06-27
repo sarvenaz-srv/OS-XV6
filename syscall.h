@@ -25,7 +25,7 @@
 #define SYS_thread_create  24
 #define SYS_thread_id      25
 #define SYS_thread_join    26
-#define SYS_change_policy  27
-#define SYS_get_priority   28
+#define SYS_get_policy     27
+#define SYS_change_policy  28
 #define SYS_set_priority   29
 #define SYS_get_proc_times 30

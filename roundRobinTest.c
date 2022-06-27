@@ -4,7 +4,7 @@
 
 
 int main(void) {
-  int origPri = get_priority();
+  int origPolicy = get_policy();
   change_policy(1);
   for(int i = 0; i < 10; i++) {
     printf(1, "i = %d\n", i);
@@ -23,6 +23,6 @@ int main(void) {
     if(wait() < 0)
       printf(1, "No Children Left!!!\n");
   }
-  set_priority(origPri);
+  change_policy(origPolicy);
   exit();
 }

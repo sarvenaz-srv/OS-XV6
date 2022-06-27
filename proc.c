@@ -540,6 +540,12 @@ yield(void)
 }
 
 int
+get_policy(void)
+{
+  return myproc()->priority;
+}
+
+int
 change_policy(int policy)
 {
   int i;
@@ -552,12 +558,6 @@ change_policy(int policy)
     }
   }
   return policy;
-}
-
-int
-get_priority(void)
-{
-  return myproc()->priority;
 }
 
 void
