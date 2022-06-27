@@ -182,6 +182,7 @@ UPROGS=\
 	_wc\
 	_zombie\
 	_threadtest\
+	_changepolicytest\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
@@ -256,6 +257,7 @@ EXTRA=\
 	.gdbinit.tmpl gdbutil\
 	sthread.c\
 	threadtest.c\
+	changepolicytest.c\
 
 dist:
 	rm -rf dist

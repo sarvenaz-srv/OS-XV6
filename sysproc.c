@@ -130,3 +130,12 @@ sys_thread_join(void) //int id
     return -1;
   return thread_join(id);
 }
+
+int
+sys_change_policy(void)
+{
+  int pol;
+  if(argint(0, &pol) <0)
+    return -1;
+  return change_policy(pol);
+}

@@ -25,3 +25,4 @@
 #define SYS_thread_create  24
 #define SYS_thread_id      25
 #define SYS_thread_join    26
+#define SYS_change_policy  27

@@ -487,6 +487,21 @@ yield(void)
   release(&ptable.lock);
 }
 
+int
+change_policy(int policy)
+{
+  int i;
+  for (i = 0; i < ncpu; ++i) {
+    cpus[i].schedAlg = policy;
+  }
+  for (i = 0; i<ncpu; ++i){
+    if(cpus[i].schedAlg != policy){
+      return -1;
+    }
+  }
+  return policy;
+}
+
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.
 void

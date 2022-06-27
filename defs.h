@@ -124,6 +124,7 @@ void            yield(void);
 uint            getpage(void);
 uint            detachpage(uint);
 int             thread_create(void*);
+int             change_policy(int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
