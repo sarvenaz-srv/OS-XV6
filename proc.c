@@ -502,6 +502,12 @@ change_policy(int policy)
   return policy;
 }
 
+void
+set_priority(int prio)
+{
+  myproc()->priority = prio;
+}
+
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.
 void

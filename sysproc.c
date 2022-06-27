@@ -139,3 +139,14 @@ sys_change_policy(void)
     return -1;
   return change_policy(pol);
 }
+
+int 
+sys_set_priority(void)
+{
+  int prio;
+  if(argint(0, &prio)<0){
+    return -1;
+  }
+  set_priority(prio);
+  return 1;
+}
