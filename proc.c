@@ -296,8 +296,9 @@ exit(void)
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-wait(void)
+diagwait(void* arg)
 {
+  struct procTimes* procTimes = (struct procTimes*)arg;
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
@@ -313,14 +314,24 @@ wait(void)
       if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
+        if(procTimes) {
+          procTimes->CBT = p->lastLeaveTime - p->creationTime;
+          procTimes->WT = p->totalWaitTime;
+          procTimes->TT = procTimes->CBT + procTimes->WT;
+        }
         kfree(p->kstack);
         p->kstack = 0;
         freevm(p->pgdir);
         p->pid = 0;
+        p->first_pid = 0;
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
+        p->priority = 0;
+        p->creationTime = 0;
+        p->lastLeaveTime = 0;
+        p->totalWaitTime = 0;
         release(&ptable.lock);
         return pid;
       }
@@ -335,6 +346,11 @@ wait(void)
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
     sleep(curproc, &ptable.lock);  //DOC: wait-sleep
   }
+}
+
+int
+wait(void) {
+  return diagwait(0);
 }
 
 // Wait for thread with the same first_pid to exit and return its tid.

@@ -21,6 +21,14 @@ sys_exit(void)
 }
 
 int
+sys_diagwait(void)
+{
+  char* arg;
+  argptr(0, &arg, sizeof(struct procTimes));
+  return diagwait(arg);
+}
+
+int
 sys_wait(void)
 {
   return wait();

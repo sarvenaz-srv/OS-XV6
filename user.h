@@ -4,6 +4,7 @@ struct rtcdate;
 // system calls
 int fork(void);
 int exit(void) __attribute__((noreturn));
+int diagwait(struct procTimes*);
 int wait(void);
 int pipe(int*);
 int write(int, const void*, int);
@@ -31,7 +32,7 @@ int thread_join(int);
 int get_policy(void);
 int change_policy(int);
 void set_priority(int);
-void get_proc_times(struct procTimes *);
+void get_proc_times(struct procTimes*);
 
 
 // ulib.c

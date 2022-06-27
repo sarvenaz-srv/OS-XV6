@@ -117,6 +117,7 @@ void            sched(void);
 void            setproc(struct proc*);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
+int             diagwait(void*);
 int             wait(void);
 int             thread_join(int);
 void            wakeup(void*);
