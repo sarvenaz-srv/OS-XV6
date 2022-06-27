@@ -125,6 +125,7 @@ uint            getpage(void);
 uint            detachpage(uint);
 int             thread_create(void*);
 int             change_policy(int);
+int             get_priority(void);
 void            set_priority(int);
 void            get_proc_times(void*);
 

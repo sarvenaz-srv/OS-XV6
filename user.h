@@ -29,6 +29,8 @@ int thread_create(void*);
 int thread_id(void);
 int thread_join(int);
 int change_policy(int);
+int get_priority(void);
+void set_priority(int);
 void get_proc_times(struct procTimes *);
 
 

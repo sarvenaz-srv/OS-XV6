@@ -35,6 +35,6 @@ SYSCALL(thread_create)
 SYSCALL(thread_id)
 SYSCALL(thread_join)
 SYSCALL(change_policy)
+SYSCALL(get_priority)
 SYSCALL(set_priority)
 SYSCALL(get_proc_times)
-

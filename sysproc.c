@@ -141,6 +141,12 @@ sys_change_policy(void)
 }
 
 int
+sys_get_priority(void)
+{
+  return get_priority();
+}
+
+int
 sys_set_priority(void)
 {
   int prio;
