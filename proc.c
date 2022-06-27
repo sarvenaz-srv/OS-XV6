@@ -20,6 +20,8 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+const int PRIORITY_Q[6] = {1, 2, 4, 8, 16, 32};
+
 void
 pinit(void)
 {
@@ -155,6 +157,12 @@ userinit(void)
   p->state = RUNNABLE;
 
   release(&ptable.lock);
+
+  pushcli();
+  if(mycpu()->schedAlg == 2) {
+    yield();
+  }
+  popcli();
 }
 
 // Grow current process's memory by n bytes.
@@ -222,6 +230,12 @@ fork(void)
   np->state = RUNNABLE;
 
   release(&ptable.lock);
+
+  pushcli();
+  if(mycpu()->schedAlg == 2) {
+    yield();
+  }
+  popcli();
 
   return pid;
 }
@@ -384,10 +398,11 @@ thread_join(int target_tid)
 void
 scheduler(void)
 {
-  struct proc *p;
+  struct proc *p, *minP;
   struct cpu *c = mycpu();
   uint timeQ;
   uint found;
+  uint minPP; //minP priority
   c->proc = 0;
 
   for(;;){
@@ -397,32 +412,63 @@ scheduler(void)
     found = 0;
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
+    if(c->RRLastProc < ptable.proc || c->RRLastProc >= ptable.proc)
+      c->RRLastProc = ptable.proc;
+
     switch (c->schedAlg) {
     default:
+    //cprintf("~default~");
       c->schedAlg = 0;
-      //cprintf("~default~");
     case 1:
     //cprintf("~1~");
       timeQ = QUANTUM;
     case 0:
     //cprintf("~0~");
-      if(c->RRLastProc < ptable.proc || c->RRLastProc >= ptable.proc)
-        c->RRLastProc = ptable.proc;
       for(p = c->RRLastProc; p < &ptable.proc[NPROC]; p++){
         if(p->state != RUNNABLE)
           continue;
         c->RRLastProc = p;
-        c->ctr = timeQ;
         found = 1;
         break;
       }
+
+      if(!found) {
+        c->RRLastProc = ptable.proc; // No proc found. Search from the beginning
+      }
       break;
-    // case 2:
+    case 2:
     // cprintf("~2~");
-    //   break;
-    // case 3:
+      timeQ = QUANTUM;
+    case 3:
     // cprintf("~3~");
-    //   break;
+      //TODO: Check for loop this should be no problem but just in case
+      minPP = 0;
+      for(p = c->RRLastProc; p < (ptable.proc + NPROC); p++) {
+        if(p->state != RUNNABLE)
+          continue;
+        found = 1;
+        if(minPP) {
+          if(p->priority < minPP) {
+            minPP = p->priority;
+            minP = p;
+          }
+        } else {
+          minPP = p->priority;
+          minP = p;
+        }
+      }
+
+      if(found) {
+        p = minP;
+        c->RRLastProc = minP;
+        if(c->schedAlg == 3) {
+          timeQ = PRIORITY_Q[p->priority-1];
+        }
+      } else {
+        c->RRLastProc = ptable.proc; // No proc found. Search from the beginning
+      }
+      break;
     // case 4:
     // cprintf("~4~");
     //   break;
@@ -433,7 +479,7 @@ scheduler(void)
       // before jumping back to us.
 
       //cprintf("[pid = %d]", p->pid);
-
+      c->ctr = timeQ;
       c->proc = p;
 
       switchuvm(p);
@@ -554,10 +600,18 @@ static void
 wakeup1(void *chan)
 {
   struct proc *p;
-
+  uint newRunnable = 0;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan) {
       p->state = RUNNABLE;
+      newRunnable = 1;
+    }
+
+  pushcli();
+  if(newRunnable && mycpu()->schedAlg == 2) {
+    yield();
+  }
+  popcli();
 }
 
 // Wake up all processes sleeping on chan.
@@ -576,15 +630,23 @@ int
 kill(int pid)
 {
   struct proc *p;
-
+  int changedToRunnable = 0;
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING) {
         p->state = RUNNABLE;
+        changedToRunnable = 1;
+
+      }
       release(&ptable.lock);
+      pushcli();
+      if(changedToRunnable && mycpu()->schedAlg == 2) {
+        yield();
+      }
+      popcli();
       return 0;
     }
   }
@@ -693,5 +755,10 @@ thread_create(void* stack)
 
   release(&ptable.lock);
 
+  pushcli();
+  if(mycpu()->schedAlg == 2) {
+    yield();
+  }
+  popcli();
   return pid;
 }
