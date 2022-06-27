@@ -110,7 +110,7 @@ extern int sys_thread_id(void);
 extern int sys_thread_join(void); // int id
 extern int sys_change_policy(void); 
 extern int sys_set_priority(void);
-extern struct procTimes sys_get_proc_times(void);
+extern int sys_get_proc_times(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]            sys_fork,

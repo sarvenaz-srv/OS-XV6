@@ -29,6 +29,8 @@ int thread_create(void*);
 int thread_id(void);
 int thread_join(int);
 int change_policy(int);
+struct procTImes get_proc_times(void);
+
 
 // ulib.c
 int stat(const char*, struct stat*);
