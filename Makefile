@@ -183,6 +183,8 @@ UPROGS=\
 	_zombie\
 	_threadtest\
 	_roundRobinTest\
+	_prioritySchedTest\
+	_multiLayeredQueuedTest\
 	_changepolicytest\
 
 fs.img: mkfs README $(UPROGS)
@@ -259,6 +261,8 @@ EXTRA=\
 	sthread.c\
 	threadtest.c\
 	roundRobinTest.c\
+	prioritySchedTest.c\
+	multiLayeredQueuedTest.c\
 	changepolicytest.c\
 
 dist:
