@@ -126,6 +126,7 @@ uint            detachpage(uint);
 int             thread_create(void*);
 int             change_policy(int);
 void            set_priority(int);
+struct procTimes get_proc_times(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

@@ -110,6 +110,7 @@ extern int sys_thread_id(void);
 extern int sys_thread_join(void); // int id
 extern int sys_change_policy(void); 
 extern int sys_set_priority(void);
+extern int sys_get_proc_times(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]            sys_fork,
@@ -140,6 +141,7 @@ static int (*syscalls[])(void) = {
 [SYS_thread_join]     sys_thread_join,
 [SYS_change_policy]   sys_change_policy,
 [SYS_set_priority]    sys_set_priority,
+[SYS_get_proc_times]  sys_get_proc_times,
 };
 
 void

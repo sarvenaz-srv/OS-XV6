@@ -27,3 +27,4 @@
 #define SYS_thread_join    26
 #define SYS_change_policy  27
 #define SYS_set_priority   28
+#define SYS_get_proc_times 29
