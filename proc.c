@@ -95,8 +95,7 @@ found:
   if(p->pid == 1)
     p->priority = 1;
 
-  uint curTime = ticks;
-  p->lastLeaveTime = p->creationTime = curTime;
+  p->lastLeaveTime = p->creationTime = ticks;
   p->totalWaitTime = 0;
   release(&ptable.lock);
 
@@ -444,8 +443,7 @@ scheduler(void)
       }
       break;
     case 2:
-     //cprintf("~2~");
-      //timeQ = QUANTUM;
+      // timeQ = QUANTUM;
     case 3:
     // cprintf("~3~");
       //TODO: Check for loop this should be no problem but just in case
@@ -490,6 +488,7 @@ scheduler(void)
 
       switchuvm(p);
       p->state = RUNNING;
+      p->totalWaitTime += (ticks - p->lastLeaveTime);
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -515,6 +514,7 @@ sched(void)
 {
   int intena;
   struct proc *p = myproc();
+  p->lastLeaveTime = ticks;
 
   if(!holding(&ptable.lock))
     panic("sched ptable.lock");
@@ -558,6 +558,17 @@ void
 set_priority(int prio)
 {
   myproc()->priority = prio;
+}
+
+struct procTimes
+get_proc_times(void)
+{
+  struct procTimes procTimes;
+  struct proc *p = myproc();
+  procTimes.TT = ticks - p->creationTime;
+  procTimes.WT = p->totalWaitTime;
+  procTimes.CBT = procTimes.TT - procTimes.WT;
+  return procTimes;
 }
 
 // A fork child's very first scheduling by scheduler()

@@ -150,3 +150,9 @@ sys_set_priority(void)
   set_priority(prio);
   return 1;
 }
+
+struct procTimes
+sys_get_proc_times(void)
+{
+  return get_proc_times();
+}
