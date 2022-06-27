@@ -28,6 +28,7 @@ uint detachpage(uint);
 int thread_create(void*);
 int thread_id(void);
 int thread_join(int);
+int change_policy(int);
 
 // ulib.c
 int stat(const char*, struct stat*);
