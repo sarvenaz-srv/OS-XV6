@@ -129,6 +129,8 @@ int             get_policy(void);
 int             change_policy(int);
 void            set_priority(int);
 void            get_proc_times(void*);
+int             get_ticketCount(void);
+void            set_ticketCount(int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

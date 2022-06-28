@@ -113,6 +113,8 @@ extern int sys_get_policy(void);
 extern int sys_change_policy(void);
 extern int sys_set_priority(void);
 extern int sys_get_proc_times(void);
+extern int sys_get_ticketCount(void);
+extern int sys_set_ticketCount(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]            sys_fork,
@@ -146,6 +148,8 @@ static int (*syscalls[])(void) = {
 [SYS_change_policy]   sys_change_policy,
 [SYS_set_priority]    sys_set_priority,
 [SYS_get_proc_times]  sys_get_proc_times,
+[SYS_get_ticketCount]  sys_get_ticketCount,
+[SYS_set_ticketCount]  sys_set_ticketCount,
 };
 
 void

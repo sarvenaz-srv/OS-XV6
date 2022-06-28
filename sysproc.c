@@ -172,3 +172,20 @@ sys_get_proc_times(void)
   argptr(0, &arg, sizeof(struct procTimes));
   get_proc_times(arg);
 }
+
+int
+sys_get_ticketCount(void) {
+  return get_ticketCount();
+}
+
+int
+sys_set_ticketCount(void) {
+  int ticketCount;
+  if(argint(0, &ticketCount) < 0)
+    return -1;
+  if(ticketCount > 0) {
+    set_ticketCount(ticketCount);
+    return 0;
+  }
+  return -1;
+}

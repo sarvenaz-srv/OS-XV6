@@ -8,8 +8,8 @@ struct cpu {
   int ncli;                    // Depth of pushcli nesting.
   int intena;                  // Were interrupts enabled before pushcli?
   struct proc *proc;           // The process running on this cpu or null
-  uint schedAlg;               // Scheduling Algorithem Number
-  struct proc* RRLastProc;     // Last Process switched in RR algorithem
+  uint schedAlg;               // Scheduling Algorithm Number
+  struct proc* RRLastProc;     // Last Process switched in RR algorithm
   uint ctr;                    // Clock Ticks remaining before current proc yeilds
 };
 
@@ -58,6 +58,7 @@ struct proc {
   uint creationTime;           // Process creation time
   uint lastLeaveTime;          // Last time process left the cpu
   uint totalWaitTime;          // Total process wait time
+  uint ticketCount;            // Lottery sched algorithm
 };
 
 // Process memory is laid out contiguously, low addresses first:

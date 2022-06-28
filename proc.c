@@ -13,6 +13,8 @@ struct {
 } ptable;
 
 static struct proc *initproc;
+static int totalTicketCount = 0;
+static int g_seed = 0;
 
 int nextpid = 1;
 extern void forkret(void);
@@ -21,6 +23,19 @@ extern void trapret(void);
 static void wakeup1(void *chan);
 
 const int PRIORITY_Q[6] = {1, 2, 4, 8, 16, 32};
+
+//should be called locked
+static inline int
+fastrandSlated(int s) {
+  g_seed = ((214013+s)*g_seed+(2531011+s));
+  return (g_seed>>16)&0x7FFF;
+}
+
+static inline int
+fastrand() {
+  g_seed = (214013*g_seed+2531011);
+  return (g_seed>>16)&0x7FFF;
+}
 
 void
 pinit(void)
@@ -90,6 +105,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->priority = 3;
+  p->ticketCount = 10;
   p->pid = nextpid++;
   //TODO: Check later
   if(p->pid == 1)
@@ -157,6 +173,7 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
+  totalTicketCount += p->ticketCount;
   release(&ptable.lock);
 
   int shouldYield;
@@ -232,6 +249,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  totalTicketCount += np->ticketCount;
   release(&ptable.lock);
 
   int shouldYield;
@@ -289,6 +307,7 @@ exit(void)
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
+  totalTicketCount -= curproc->ticketCount;
   sched();
   panic("zombie exit");
 }
@@ -332,6 +351,7 @@ diagwait(void* arg)
         p->creationTime = 0;
         p->lastLeaveTime = 0;
         p->totalWaitTime = 0;
+        p->ticketCount = 0;
         release(&ptable.lock);
         return pid;
       }
@@ -392,6 +412,11 @@ thread_join(int target_tid)
         p->killed = 0;
         p->state = UNUSED;
         p->first_pid = 0;
+        p->priority = 0;
+        p->creationTime = 0;
+        p->lastLeaveTime = 0;
+        p->totalWaitTime = 0;
+        p->ticketCount = 0;
         release(&ptable.lock);
         return res;
       }
@@ -424,9 +449,16 @@ scheduler(void)
   uint timeQ;
   uint found;
   uint minPP; //minP priority
+  int winner;
   c->proc = 0;
 
+  for(int i = 0; i < 1000; i++) {
+    fastrandSlated(ticks);
+  }
+
   for(;;){
+    // if(!totalTicketCount)
+    //   continue;
     // Enable interrupts on this processor.
     sti();
     timeQ = 1;
@@ -482,16 +514,29 @@ scheduler(void)
       if(found) {
         p = minP;
         c->RRLastProc = minP;
-        //if(c->schedAlg == 3) {
+        if(c->schedAlg == 3) {
         timeQ = PRIORITY_Q[p->priority-1];
-        //}
+        }
       } else {
         c->RRLastProc = ptable.proc; // No proc found. Search from the beginning
       }
       break;
-    // case 4:
-    // cprintf("~4~");
-    //   break;
+    case 4:
+      if(totalTicketCount > 0)
+        winner = fastrand() % totalTicketCount;
+      else
+        winner = 0;
+
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        if(p->state != RUNNABLE)
+          continue;
+        winner -= p->ticketCount;
+        if(winner < 0) {
+          found = 1;
+          break;
+        }
+      }
+      break;
     }
     if(found) {
       // Switch to chosen process.  It is the process's job
@@ -502,9 +547,12 @@ scheduler(void)
       c->ctr = timeQ;
       c->proc = p;
 
+      p->totalWaitTime += (ticks - p->lastLeaveTime);
+
+      //cprintf("[%d/%d]", fastrand() % totalTicketCount, totalTicketCount);
+
       switchuvm(p);
       p->state = RUNNING;
-      p->totalWaitTime += (ticks - p->lastLeaveTime);
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -514,7 +562,6 @@ scheduler(void)
       c->proc = 0;
     }
     release(&ptable.lock);
-
   }
 }
 
@@ -564,21 +611,28 @@ get_policy(void)
 int
 change_policy(int policy)
 {
+  if(policy < 0 || policy > 4)
+    return -1;
   int i;
+  pushcli();
   for (i = 0; i < ncpu; ++i) {
     cpus[i].schedAlg = policy;
   }
-  for (i = 0; i<ncpu; ++i){
-    if(cpus[i].schedAlg != policy){
-      return -1;
-    }
-  }
+  popcli();
+  //TODO: Check if needed
+  // for (i = 0; i<ncpu; ++i){
+  //   if(cpus[i].schedAlg != policy){
+  //     return -1;
+  //   }
+  // }
   return policy;
 }
 
 void
 set_priority(int prio)
 {
+  if(prio < 1 || prio > 6)
+  prio = 5;
   myproc()->priority = prio;
 }
 
@@ -590,6 +644,17 @@ get_proc_times(void* arg)
   procTimes->TT = ticks - p->creationTime;
   procTimes->WT = p->totalWaitTime;
   procTimes->CBT = procTimes->TT - procTimes->WT;
+}
+
+int
+get_ticketCount(void) {
+  return myproc()->ticketCount;
+}
+
+void
+set_ticketCount(int ticketCount) {
+  if(ticketCount > 0)
+    myproc()->ticketCount = ticketCount;
 }
 
 // A fork child's very first scheduling by scheduler()
@@ -639,6 +704,7 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
+  totalTicketCount -= p->ticketCount;
 
   sched();
 
@@ -660,8 +726,10 @@ wakeup1(void *chan)
 {
   struct proc *p;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan) {
       p->state = RUNNABLE;
+      totalTicketCount += p->ticketCount;
+    }
 }
 
 // Wake up all processes sleeping on chan.
@@ -688,6 +756,7 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING) {
         p->state = RUNNABLE;
+        totalTicketCount += p->ticketCount;
         changedToRunnable = 1;
       }
       release(&ptable.lock);
@@ -805,6 +874,7 @@ thread_create(void* stack)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  totalTicketCount += np->ticketCount;
   release(&ptable.lock);
 
   int shouldYield;
