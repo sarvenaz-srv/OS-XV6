@@ -56,8 +56,9 @@ struct proc {
   int first_pid;               // Number of threads that share the pm
   uint priority;               // Process priority
   uint creationTime;           // Process creation time
-  uint lastLeaveTime;          // Last time process left the cpu
+  uint lastChangeTime;         // Last time process left the cpu
   uint totalWaitTime;          // Total process wait time
+  uint totalCBT;               // Total process alocated CPU Burst Time 
   uint ticketCount;            // Lottery sched algorithm
 };
 

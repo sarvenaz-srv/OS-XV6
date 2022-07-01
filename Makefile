@@ -184,7 +184,7 @@ UPROGS=\
 	_threadtest\
 	_roundRobinTest\
 	_prioritySchedTest\
-	_multiLayeredQueuedTest\
+	_multiLayeredQueueTest\
 	_changepolicytest\
 	_lotteryTest\
 
@@ -263,7 +263,7 @@ EXTRA=\
 	threadtest.c\
 	roundRobinTest.c\
 	prioritySchedTest.c\
-	multiLayeredQueuedTest.c\
+	multiLayeredQueueTest.c\
 	changepolicytest.c\
 	lotteryTest.c\
 

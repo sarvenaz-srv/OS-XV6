@@ -34,7 +34,7 @@ int main(void) {
     }
   }
   printf(1, "~Done Waiting~\n");
-  
+
   float CBTavg = 0, WTavg = 0, TTavg = 0;
   for(int i = 0; i < 60; i++) {
     printf(1, "CPU Burst Time: %d\tTurnaround Time: %d\tWait Time: %d\n", procTimes[i].CBT, procTimes[i].TT, procTimes[i].WT);

@@ -107,12 +107,12 @@ found:
   p->priority = 3;
   p->ticketCount = 10;
   p->pid = nextpid++;
-  //TODO: Check later
   if(p->pid == 1)
     p->priority = 1;
 
-  p->lastLeaveTime = p->creationTime = ticks;
+  p->lastChangeTime = p->creationTime = ticks;
   p->totalWaitTime = 0;
+  p->totalCBT = 0;
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -174,6 +174,7 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
+  p->lastChangeTime = ticks;
   totalTicketCount += p->ticketCount;
   release(&ptable.lock);
 
@@ -251,6 +252,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  np->lastChangeTime = ticks;
   totalTicketCount += np->ticketCount;
   release(&ptable.lock);
 
@@ -336,9 +338,9 @@ diagwait(void* arg)
         // Found one.
         pid = p->pid;
         if(procTimes) {
-          procTimes->CBT = p->lastLeaveTime - p->creationTime;
+          procTimes->CBT = p->totalCBT;
           procTimes->WT = p->totalWaitTime;
-          procTimes->TT = procTimes->CBT + procTimes->WT;
+          procTimes->TT = p->lastChangeTime - p->creationTime;
         }
         kfree(p->kstack);
         p->kstack = 0;
@@ -351,8 +353,9 @@ diagwait(void* arg)
         p->state = UNUSED;
         p->priority = 0;
         p->creationTime = 0;
-        p->lastLeaveTime = 0;
+        p->lastChangeTime = 0;
         p->totalWaitTime = 0;
+        p->totalCBT = 0;
         p->ticketCount = 0;
         release(&ptable.lock);
         return pid;
@@ -416,8 +419,9 @@ thread_join(int target_tid)
         p->first_pid = 0;
         p->priority = 0;
         p->creationTime = 0;
-        p->lastLeaveTime = 0;
+        p->lastChangeTime = 0;
         p->totalWaitTime = 0;
+        p->totalCBT = 0;
         p->ticketCount = 0;
         release(&ptable.lock);
         return res;
@@ -562,7 +566,8 @@ scheduler(void)
       c->ctr = timeQ;
       c->proc = p;
 
-      p->totalWaitTime += (ticks - p->lastLeaveTime);
+      p->totalWaitTime += (ticks - p->lastChangeTime);
+      p->lastChangeTime = ticks;
 
       //cprintf("[%d/%d]", fastrand() % totalTicketCount, totalTicketCount);
 
@@ -592,7 +597,8 @@ sched(void)
 {
   int intena;
   struct proc *p = myproc();
-  p->lastLeaveTime = ticks;
+  p->totalCBT += ticks - p->lastChangeTime;
+  p->lastChangeTime = ticks;
 
   if(!holding(&ptable.lock))
     panic("sched ptable.lock");
@@ -656,9 +662,11 @@ get_proc_times(void* arg)
 {
   struct proc *p = myproc();
   struct procTimes* procTimes = (struct procTimes*)arg;
+  p->totalCBT += ticks - p->lastChangeTime;
+  p->lastChangeTime = ticks;
   procTimes->TT = ticks - p->creationTime;
   procTimes->WT = p->totalWaitTime;
-  procTimes->CBT = procTimes->TT - procTimes->WT;
+  procTimes->CBT = p->totalCBT;
 }
 
 int
@@ -747,7 +755,7 @@ wakeup1(void *chan)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan) {
       p->state = RUNNABLE;
-      p->lastLeaveTime = ticks;
+      p->lastChangeTime = ticks;
       totalTicketCount += p->ticketCount;
     }
 }
@@ -777,6 +785,7 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING) {
         p->state = RUNNABLE;
+        p->lastChangeTime = ticks;
         totalTicketCount += p->ticketCount;
         changedToRunnable = 1;
       }
@@ -897,6 +906,7 @@ thread_create(void* stack)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  np->lastChangeTime = ticks;
   totalTicketCount += np->ticketCount;
   release(&ptable.lock);
 
