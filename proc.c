@@ -146,6 +146,7 @@ userinit(void)
 {
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
+  int alg, shouldYield;
 
   p = allocproc();
 
@@ -176,9 +177,9 @@ userinit(void)
   totalTicketCount += p->ticketCount;
   release(&ptable.lock);
 
-  int shouldYield;
   pushcli();
-  shouldYield = mycpu()->schedAlg == 2;
+  alg = mycpu()->schedAlg;
+  shouldYield = alg == 2 || alg == 3;
   popcli();
   if(shouldYield) {
     yield();
@@ -216,6 +217,7 @@ fork(void)
   int i, pid;
   struct proc *np;
   struct proc *curproc = myproc();
+  int agl, shouldYield;
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -252,9 +254,9 @@ fork(void)
   totalTicketCount += np->ticketCount;
   release(&ptable.lock);
 
-  int shouldYield;
   pushcli();
-  shouldYield = mycpu()->schedAlg == 2;
+  alg = mycpu()->schedAlg;
+  shouldYield = alg == 2 || alg == 3;
   popcli();
   if(shouldYield) {
     yield();
@@ -448,6 +450,7 @@ scheduler(void)
   struct cpu *c = mycpu();
   uint timeQ;
   uint found;
+  uint index;
   uint minPP; //minP priority
   int winner;
   c->proc = 0;
@@ -466,8 +469,13 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
 
-    if(c->RRLastProc < ptable.proc || c->RRLastProc >= ptable.proc)
+    if(c->RRLastProc < ptable.proc || c->RRLastProc >= &ptable.proc[NPROC])
       c->RRLastProc = ptable.proc;
+
+    //If c->RRLastProc isn't at the beginning of the proc array
+    //start form the next index to comply with RR
+    if(c->RRLastProc > ptable.proc)
+      c->RRLastProc++;
 
     switch (c->schedAlg) {
     default:
@@ -494,21 +502,28 @@ scheduler(void)
       // timeQ = QUANTUM;
     case 3:
     // cprintf("~3~");
-      //TODO: Check for loop this should be no problem but just in case
       minPP = 0;
-      for(p = c->RRLastProc; p < (ptable.proc + NPROC); p++) {
-        if(p->state != RUNNABLE)
-          continue;
-        found = 1;
-        if(minPP) {
-          if(p->priority < minPP) {
+      p = c->RRLastProc
+      //Do a full loop on proc array
+      //Starting from c->RRLastProc results in using RR algorithm amongst processes with equal priority
+      for(index = 0; index < NPROC; index++) {
+        if(p->state == RUNNABLE) {
+          found = 1;
+          if(minPP) {
+            if(p->priority < minPP) {
+              minPP = p->priority;
+              minP = p;
+            }
+          } else {
             minPP = p->priority;
             minP = p;
           }
-        } else {
-          minPP = p->priority;
-          minP = p;
+          if(minPP == 1)
+            break;
         }
+        p++;
+        if(p >= &ptable.proc[NPROC])
+          p = ptable.proc;
       }
 
       if(found) {
@@ -728,6 +743,7 @@ wakeup1(void *chan)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan) {
       p->state = RUNNABLE;
+      p->lastLeaveTime = ticks;
       totalTicketCount += p->ticketCount;
     }
 }
@@ -747,6 +763,7 @@ wakeup(void *chan)
 int
 kill(int pid)
 {
+  int alg, shouldYield;
   struct proc *p;
   int changedToRunnable = 0;
   acquire(&ptable.lock);
@@ -761,12 +778,13 @@ kill(int pid)
       }
       release(&ptable.lock);
 
-      int shouldYield;
-      pushcli();
-      shouldYield = mycpu()->schedAlg == 2;
-      popcli();
-      if(changedToRunnable && shouldYield) {
-        yield();
+      if(changedToRunnable) {
+        pushcli();
+        alg = mycpu()->schedAlg;
+        shouldYield = alg == 2 || alg == 3;
+        popcli();
+        if(shouldYield)
+          yield();
       }
 
       return 0;
@@ -837,6 +855,7 @@ thread_create(void* stack)
   uint sp = (uint)stack;
   uint spage = PGROUNDDOWN(sp);
   uint orig_stack_beg = PGROUNDDOWN(curproc->tf->esp);
+  int alg, shouldYield;
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -877,9 +896,9 @@ thread_create(void* stack)
   totalTicketCount += np->ticketCount;
   release(&ptable.lock);
 
-  int shouldYield;
   pushcli();
-  shouldYield = mycpu()->schedAlg == 2;
+  alg = mycpu()->schedAlg;
+  shouldYield = alg == 2 || alg == 3;
   popcli();
   if(shouldYield) {
     yield();
