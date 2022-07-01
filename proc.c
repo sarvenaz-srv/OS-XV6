@@ -217,7 +217,7 @@ fork(void)
   int i, pid;
   struct proc *np;
   struct proc *curproc = myproc();
-  int agl, shouldYield;
+  int alg, shouldYield;
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -503,7 +503,7 @@ scheduler(void)
     case 3:
     // cprintf("~3~");
       minPP = 0;
-      p = c->RRLastProc
+      p = c->RRLastProc;
       //Do a full loop on proc array
       //Starting from c->RRLastProc results in using RR algorithm amongst processes with equal priority
       for(index = 0; index < NPROC; index++) {
