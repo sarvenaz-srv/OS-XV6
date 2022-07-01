@@ -668,8 +668,12 @@ get_ticketCount(void) {
 
 void
 set_ticketCount(int ticketCount) {
-  if(ticketCount > 0)
-    myproc()->ticketCount = ticketCount;
+  struct proc* p;
+  if(ticketCount > 0) {
+    p = myproc();
+    totalTicketCount += ticketCount - p->ticketCount;
+    p->ticketCount = ticketCount;
+  }
 }
 
 // A fork child's very first scheduling by scheduler()

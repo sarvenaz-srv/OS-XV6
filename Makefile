@@ -186,6 +186,7 @@ UPROGS=\
 	_prioritySchedTest\
 	_multiLayeredQueuedTest\
 	_changepolicytest\
+	_lotteryTest\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
@@ -264,6 +265,7 @@ EXTRA=\
 	prioritySchedTest.c\
 	multiLayeredQueuedTest.c\
 	changepolicytest.c\
+	lotteryTest.c\
 
 dist:
 	rm -rf dist
