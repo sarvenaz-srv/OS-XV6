@@ -620,7 +620,7 @@ yield(void)
 int
 get_policy(void)
 {
-  return myproc()->priority;
+  return cpus[0].schedAlg;
 }
 
 int
