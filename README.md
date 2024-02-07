@@ -1,3 +1,29 @@
+# XV6 with multithreading and advanced scheduling algorithms
+This implementation adds threads and thread management to XV6 operating system at a higher level. Microcode implementation of XV6 is not changed since it's hardware specific and it's not designed to work with multi core CPUs. Threads added work in a time sharing manner and in order to manage them multiple scheduling algorithms are realized.
+
+## Threading
+The main challenges with multi treading include:
+- Resource allocation, sharing and deallocation between threads of the same process
+- Thread Identification
+- Joining to a specific thread of a specific process and returning its results
+
+## Scheduling
+Following scheduling algorithms have been realized:
+- Round-Robin
+- Preemptive Priority Scheduling
+- Preemptive Multilevel Queue Scheduling
+- Lottery Scheduling
+
+## Evaluation
+In order to assess performance of the overall system and each of the scheduling algorithms some metrics and tests had to be added to the system.
+For each of the scheduling algorithms one test has been implemented with respect its function.
+Since the base operating system and every test program runs using a unified scheduling algorithm in order to run a specific test program with a specific scheduling algorithm, a system-call named changePolicy has been added in order to change the scheduling algorithm while the operating system is functional and this has been done with no down-time.
+In order to measure algorithm performance the following variables have been added to process statistics:
+- CPU Burst Time
+- Turnaround Time
+- Waiting Time
+
+## Original README of Base XV6 Operating System (x86 version)
 NOTE: we have stopped maintaining the x86 version of xv6, and switched
 our efforts to the RISC-V version
 (https://github.com/mit-pdos/xv6-riscv.git)
